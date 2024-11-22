@@ -4,7 +4,7 @@ This example showcases inference of Visual language models (VLMs): [`openbmb/Min
 
 # Build openvino.genai
 ```sh
-git clone https://github.com/onlymatrix/openvino.genai.git
+git clone https://github.com/onlymatrix/openvino.genai.git -b build-ov-2024.5
 cd openvino.genai/
 git submodule update --init
 ```
