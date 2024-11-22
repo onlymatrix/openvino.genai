@@ -17,7 +17,6 @@ Compile the project using CMake:
 cd openvino.genai
 mkdir build & cd build
 cmake -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-cmake --build build -j --config Release
 cmake --build . --config RelWithDebInfo --verbose -j4
 ```
 
