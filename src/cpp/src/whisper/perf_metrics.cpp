@@ -6,7 +6,35 @@
 namespace ov {
 namespace genai {
 
-MeanStdPair calc_mean_and_std(const std::vector<MicroSeconds>& durations);
+namespace {
+
+ov::genai::MeanStdPair calc_mean_and_std(const std::vector<ov::genai::MicroSeconds>& durations) {
+    if (durations.size() == 0) {
+        return {-1, -1};
+    }
+    // Accepts time durations in microseconds and returns standard deviation and mean in milliseconds.
+    float mean = std::accumulate(durations.begin(),
+                                 durations.end(),
+                                 0.0f,
+                                 [](const float& acc, const ov::genai::MicroSeconds& duration) -> float {
+                                     return acc + duration.count() / 1000.0f;
+                                 });
+    mean /= durations.size();
+
+    float sum_square_durations =
+        std::accumulate(durations.begin(),
+                        durations.end(),
+                        0.0f,
+                        [](const float& acc, const ov::genai::MicroSeconds& duration) -> float {
+                            auto d = duration.count() / 1000.0f;
+                            return acc + d * d;
+                        });
+    float std = std::sqrt(sum_square_durations / durations.size() - mean * mean);
+    return {mean, std};
+}
+
+}  // namespace
+
 
 MeanStdPair WhisperPerfMetrics::get_features_extraction_duration() {
     evaluate_statistics();

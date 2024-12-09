@@ -49,7 +49,8 @@ struct OPENVINO_GENAI_EXPORTS WhisperPerfMetrics : public PerfMetrics {
 
     WhisperPerfMetrics(PerfMetrics& perf_metrics) : PerfMetrics(perf_metrics){};
 
-    void evaluate_statistics(std::optional<TimePoint> start_time = std::nullopt) override;
+    //void evaluate_statistics(std::optional<TimePoint> start_time = std::nullopt) override;
+    void evaluate_statistics(std::optional<TimePoint> start_time = std::nullopt);
 
     WhisperPerfMetrics operator+(const WhisperPerfMetrics& metrics) const;
     WhisperPerfMetrics& operator+=(const WhisperPerfMetrics& right);

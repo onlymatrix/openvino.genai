@@ -66,11 +66,9 @@ std::vector<GenerationOutput> GenerationHandleImpl::read_all() {
         std::unordered_map<uint64_t, GenerationOutput> iteration_results = read();
         add_partial_result(partial_results, iteration_results);
     }
-
-    for (auto& partial_result : partial_results) {
+    
+    for (auto& partial_result: partial_results) {
         results.push_back(partial_result.second);
     }
-    std::sort(results.begin(), results.end(), [](const GenerationOutput& lhs, const GenerationOutput& rhs) { return lhs.score > rhs.score; });
-    results.resize(std::min(m_sampling_params.num_return_sequences, results.size()));
     return results;
 }

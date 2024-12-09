@@ -50,6 +50,8 @@ public:
     bool m_is_chat_conversation;
     // InputsEmbedder
     std::shared_ptr<InputsEmbedder> m_inputs_embedder;
+    
+    float m_load_time_ms;
 
     VLMPipelineImpl(
         const std::filesystem::path& models_dir,
@@ -57,11 +59,12 @@ public:
         const ov::AnyMap& properties
     ) :
         m_vlm_config{
-            utils::from_config_json_if_exists<VLMConfig>(
+            utils::from_config_json_if_exists<ov::genai::VLMConfig>(
                 models_dir, "config.json"
             )
         },
         m_is_chat_conversation{false} {
+        auto start_time = std::chrono::steady_clock::now();
         m_inputs_embedder = std::make_shared<InputsEmbedder>(
             m_vlm_config, models_dir, device, properties);
 
@@ -71,13 +74,10 @@ public:
         m_language = utils::singleton_core().compile_model(
             models_dir / "openvino_language_model.xml", device, properties
         ).create_infer_request();
-
+        
         m_language.get_tensor("attention_mask").set_shape({1, 0});
-
-        // If eos_token_id was not provided, take value
-        if (m_generation_config.eos_token_id == -1) {
-            m_generation_config.set_eos_token_id(m_tokenizer.get_eos_token_id());
-        }
+        auto stop_time = std::chrono::steady_clock::now();
+        this->m_load_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop_time - start_time).count();
     }
 
     DecodedResults generate(
@@ -86,10 +86,12 @@ public:
         GenerationConfig generation_config,
         const StreamerVariant& streamer
     ) {
-        // If eos_token_id was not provided, take value from default m_generation_config
-        if (generation_config.eos_token_id == -1)
-            generation_config.set_eos_token_id(m_generation_config.eos_token_id);
-        generation_config.validate();
+        // If eos_token_id was not provided, take value
+        if (generation_config.eos_token_id == -1) {
+            generation_config.set_eos_token_id(m_tokenizer.get_eos_token_id());
+        }
+        
+        auto start_time = std::chrono::steady_clock::now();
 
         ov::Tensor inputs_embeds = m_inputs_embedder->get_inputs_embeds(prompt, rgbs);
 
@@ -105,6 +107,7 @@ public:
         std::fill_n(prompt_ids.data<int64_t>(), prompt_ids.get_size(), 0);
 
         SequenceGroup::Ptr sequence_group = std::make_shared<SequenceGroup>(request_id, prompt_ids, generation_config, block_size, enable_prefix_caching);
+        sequence_group->update_processed_tokens_num(history_size);
         sequence_group->set_sequence_group_ptr(sequence_group);
         requests.push_back(sequence_group);
 
@@ -135,12 +138,15 @@ public:
         int32_t m_selected_beam = 0;
         std::tie(encoded_result, m_selected_beam) = ov::genai::get_lm_encoded_results(m_language, inputs_embeds, new_atten_mask, streamer_ptr, sampler, requests,
                                                                                       position_ids, m_embedding, std::nullopt);
+        auto encode_stop_time = std::chrono::steady_clock::now();
 
+        auto decode_start_time = std::chrono::steady_clock::now();
         DecodedResults decoded;
         for (size_t idx = 0; idx < encoded_result.tokens.size(); ++idx) {
             decoded.texts.push_back(m_tokenizer.decode(encoded_result.tokens.at(idx)));
             decoded.scores.push_back(encoded_result.scores.at(idx));
         }
+        auto decode_stop_time =  std::chrono::steady_clock::now();
 
         std::string decoded_results = decoded.texts.at(0);
         if (m_is_chat_conversation) {
@@ -149,6 +155,22 @@ public:
             m_language.reset_state();
             m_language.get_tensor("attention_mask").set_shape({1, 0});
         }
+
+        // generate_durations
+        decoded.perf_metrics = encoded_result.perf_metrics;
+
+        auto& raw_counters = decoded.perf_metrics.raw_metrics;
+        auto stop_time = std::chrono::steady_clock::now();
+        raw_counters.generate_durations = std::vector<MicroSeconds>();
+        raw_counters.generate_durations.emplace_back(PerfMetrics::get_microsec(stop_time - start_time));
+        raw_counters.tokenization_durations.emplace_back(PerfMetrics::get_microsec(encode_stop_time - start_time));
+        raw_counters.detokenization_durations.emplace_back(
+            PerfMetrics::get_microsec(decode_stop_time - decode_start_time));
+
+        // Added tokenization/detokenization times, and updated generate duration, need to reevaluate statistics.
+        decoded.perf_metrics.m_evaluated = false;
+        decoded.perf_metrics.evaluate_statistics(start_time);
+
         return decoded;
     }
 
@@ -233,15 +255,6 @@ DecodedResults VLMPipeline::generate(
     const StreamerVariant& streamer
 ) {
     return m_pimpl->generate(prompt, rgbs, generation_config, streamer);
-}
-
-DecodedResults VLMPipeline::generate(
-    const std::string& prompt,
-    const ov::Tensor& rgb,
-    const GenerationConfig& generation_config,
-    const StreamerVariant& streamer
-) {
-    return m_pimpl->generate(prompt, {rgb}, generation_config, streamer);
 }
 
 DecodedResults VLMPipeline::generate(

@@ -86,6 +86,7 @@ std::pair<EncodedResults, int32_t> get_lm_encoded_results(
     if (position_ids.has_value())
         m_llm.set_tensor("position_ids", *position_ids);
 
+    m_llm.get_tensor("beam_idx").set_shape({ batch_size });
     ov::Tensor beam_idx = ov::Tensor(ov::element::i32, {batch_size});
     auto beam_data = beam_idx.data<int32_t>();
     if (selected_beam_idx.has_value())
@@ -106,11 +107,8 @@ std::pair<EncodedResults, int32_t> get_lm_encoded_results(
     auto logits = m_llm.get_tensor("logits");
 
     int64_t sequence_len = logits.get_shape().at(1);
-    for (auto& sequence_group : sequence_groups) {
-        sequence_group->update_processed_tokens_num(sequence_group->get_prompt_len() - sequence_len);
+    for (auto& sequence_group : sequence_groups)
         sequence_group->schedule_tokens(sequence_len);
-
-    }
 
     std::map<size_t, size_t> beam_offets;
     for (size_t i = 0; i < sequence_groups.size(); i++)
@@ -206,7 +204,14 @@ std::pair<EncodedResults, int32_t> get_lm_encoded_results(
             // stream data from first sequence
             int64_t out_token = sequence_groups.at(0).get()->operator[](0)->get_generated_ids().back();
             if (streamer_ptr->put(out_token)) {
-                break;
+                for (size_t i = 0; i < sequence_groups.size(); i++) {
+                    sequence_groups.at(i).get()->set_generation_status(ov::genai::GenerationStatus::FINISHED);
+                }
+                active_sequence_groups.erase(std::remove_if(active_sequence_groups.begin(),
+                                                            active_sequence_groups.end(),
+                                                            get_active_sequence_groups),
+                                             active_sequence_groups.end());
+               break;
             }
         }
 

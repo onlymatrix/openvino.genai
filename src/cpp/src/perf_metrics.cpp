@@ -7,8 +7,7 @@
 #include <numeric>
 #include <cmath>
 
-namespace ov {
-namespace genai {
+namespace {
 
 ov::genai::MeanStdPair calc_mean_and_std(const std::vector<ov::genai::MicroSeconds>& durations) {
     if (durations.size() == 0) {
@@ -29,6 +28,11 @@ ov::genai::MeanStdPair calc_mean_and_std(const std::vector<ov::genai::MicroSecon
     float std = std::sqrt(sum_square_durations / durations.size() - mean * mean);
     return {mean, std};
 }
+
+} // namespace
+
+namespace ov {
+namespace genai {
 
 float PerfMetrics::get_load_time() {
     return load_time;
@@ -131,7 +135,7 @@ void PerfMetrics::evaluate_statistics(std::optional<TimePoint> start_time) {
 }
 
 PerfMetrics PerfMetrics::operator+(const PerfMetrics& right) const {
-    OPENVINO_ASSERT(right.load_time == load_time, "generation metrics can be accumulated only for the same pipeline");
+    //OPENVINO_ASSERT(right.load_time == load_time, "generation metrics can be accumulated only for the same pipeline");
     
     // Copy left value to res.
     PerfMetrics res = *this;

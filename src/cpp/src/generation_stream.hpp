@@ -35,7 +35,8 @@ public:
         return m_output_queue.back();
     }
     GenerationOutputs read() {
-        return m_output_queue.pull();
+        auto ret = m_output_queue.pull();
+        return ret;
     }
 
     bool can_read() {
