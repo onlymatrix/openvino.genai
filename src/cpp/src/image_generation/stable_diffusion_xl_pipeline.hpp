@@ -111,12 +111,19 @@ public:
             OPENVINO_THROW("Unsupported '", unet, "' UNet type");
         }
 
+        // Temporary fix for GPU
+        ov::AnyMap updated_roperties = properties;
+        if (device.find("GPU") != std::string::npos &&
+            updated_roperties.find("INFERENCE_PRECISION_HINT") == updated_roperties.end()) {
+            updated_roperties["INFERENCE_PRECISION_HINT"] = ov::element::f32;
+        }
+
         const std::string vae = data["vae"][1].get<std::string>();
         if (vae == "AutoencoderKL") {
             if (m_pipeline_type == PipelineType::TEXT_2_IMAGE)
-                m_vae = std::make_shared<AutoencoderKL>(root_dir / "vae_decoder", device, properties);
+                m_vae = std::make_shared<AutoencoderKL>(root_dir / "vae_decoder", device, updated_roperties);
             else if (m_pipeline_type == PipelineType::IMAGE_2_IMAGE) {
-                m_vae = std::make_shared<AutoencoderKL>(root_dir / "vae_encoder", root_dir / "vae_decoder", device, properties);
+                m_vae = std::make_shared<AutoencoderKL>(root_dir / "vae_encoder", root_dir / "vae_decoder", device, updated_roperties);
             } else {
                 OPENVINO_ASSERT("Unsupported pipeline type");
             }
@@ -540,10 +547,10 @@ private:
     friend class Image2ImagePipeline;
 
     bool m_force_zeros_for_empty_prompt = true;
-    std::shared_ptr<CLIPTextModel> m_clip_text_encoder;
-    std::shared_ptr<CLIPTextModelWithProjection> m_clip_text_encoder_with_projection;
-    std::shared_ptr<UNet2DConditionModel> m_unet;
-    std::shared_ptr<AutoencoderKL> m_vae;
+    std::shared_ptr<CLIPTextModel> m_clip_text_encoder = nullptr;
+    std::shared_ptr<CLIPTextModelWithProjection> m_clip_text_encoder_with_projection = nullptr;
+    std::shared_ptr<UNet2DConditionModel> m_unet = nullptr;
+    std::shared_ptr<AutoencoderKL> m_vae = nullptr;
 };
 
 }  // namespace genai
