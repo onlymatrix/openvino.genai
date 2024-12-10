@@ -206,6 +206,13 @@ std::pair<EncodedResults, int32_t> get_lm_encoded_results(
             // stream data from first sequence
             int64_t out_token = sequence_groups.at(0).get()->operator[](0)->get_generated_ids().back();
             if (streamer_ptr->put(out_token)) {
+                for (size_t i = 0; i < sequence_groups.size(); i++) {
+                    sequence_groups.at(i).get()->set_generation_status(ov::genai::GenerationStatus::FINISHED);
+                }
+                active_sequence_groups.erase(std::remove_if(active_sequence_groups.begin(),
+                                                            active_sequence_groups.end(),
+                                                            get_active_sequence_groups),
+                                             active_sequence_groups.end());
                 break;
             }
         }
