@@ -1,4 +1,4 @@
-# C++ visual language chat [Adapt for miniCPM-V26](README_Adapt4miniCPM.md)
+# C++ visual language chat | [Adapt for miniCPM-V26](README_Adapt4miniCPM.md)
 
 This example showcases inference of Visual language models (VLMs): [`openbmb/MiniCPM-V-2_6`](https://huggingface.co/openbmb/MiniCPM-V-2_6). The application doesn't have many configuration options to encourage the reader to explore and modify the source code. For example, change the device for inference to GPU. The sample features `ov::genai::VLMPipeline` and runs the simplest deterministic greedy sampling algorithm. There is also a Jupyter [notebook](https://github.com/openvinotoolkit/openvino_notebooks/tree/latest/notebooks/minicpm-v-multimodal-chatbot) which provides an example of Visual-language assistant.
 
